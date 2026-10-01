@@ -28,7 +28,7 @@ def compute_euclidean_distance(from_node: dict, to_node: dict) -> float:
     to_x, to_y = to_node["x"], to_node["y"]
 
     # Simple Euclidean distance calculation (not accounting for Earth's curvature)
-    return round(((from_x - to_x) ** 2 + (from_y - to_y) ** 2) ** 0.5, 2)
+    return round(((from_x - to_x) ** 2 + (from_y - to_y) ** 2) ** 0.5)
 
 def compute_distance_matrix(data: dict) -> dict:
     """Computes a distance matrix between all locations using the compute_distance function."""
@@ -44,8 +44,8 @@ def compute_distance_matrix(data: dict) -> dict:
                 # Distance from a node to itself is zero.
                 distances[from_counter][to_counter] = 0
             else:
-                if data['name'] == 'C101':
-                    # For Solomon dataset, use Euclidean distance for simplicity.
+                if data.get("distance_metric") == "euclidean":
+                    # Solomon benchmark coordinates use Euclidean distance.
                     distances[from_counter][to_counter] = compute_euclidean_distance(from_node, to_node)
                 else:
                     # We assume one distance unit represents one minute of travel time.

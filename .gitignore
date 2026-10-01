@@ -6,3 +6,5 @@ outputs/
 venv/
 
 .DS_Store
+
+.env

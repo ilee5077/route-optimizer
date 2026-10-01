@@ -5,7 +5,7 @@ from optimizer.output_writer import save_result
 
 
 def main():
-    result = solve_vrptw("data/Solomon/c101.txt")
+    result = solve_vrptw("data/Solomon/r206.txt")
 
 if __name__ == "__main__":
     main()

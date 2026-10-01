@@ -3,9 +3,10 @@ from fastapi import routing
 from ortools.constraint_solver import routing_enums_pb2
 from ortools.constraint_solver import pywrapcp
 
-from optimizer.data_loader import load_input_data, load_solomon_file
+from optimizer.data_loader import load_input_data, load_solomon_file, prepare_solver_data
 from optimizer.geocoder import geocode_address
 from optimizer.distance_service import compute_distance_matrix
+from validation.validation_code import validate_vrptw_solution
 
 
 
@@ -46,23 +47,7 @@ def print_solution(data, manager, routing, solution):
     print(f"Total distance of all routes: {total_distance}km")
     print(f"Total vehicles used: {total_vehicles_used}")
 
-def define_constraints(data: dict) -> dict:
-    """Defines the constraints for the VRPTW problem."""
 
-    data['nodes'] = [data["depot"]] + data["customers"]
-    data['demands'] = [0] * len(data['nodes'])
-    data['time_windows'] = [(0, 0)] * len(data['nodes'])
-
-
-    # construct demand and time window constraints for each node
-    data['demands'][data["depot"]["id"]] = 0  # depot has no demand
-    data['time_windows'][data["depot"]["id"]] = (data["depot"]["ready_time"], data["depot"]["due_date"])
-
-    for idx, customer in enumerate(data["customers"]):
-        data['demands'][customer["id"]] = customer["demand"]
-        data['time_windows'][customer["id"]] = (customer["ready_time"], customer["due_date"])
-
-    return data
 
 def solve_vrptw(data_path: str) -> dict:
     """Main solver pipeline using Google OR-Tools to optimize vehicle routes under capacity and time-window constraints."""
@@ -71,8 +56,8 @@ def solve_vrptw(data_path: str) -> dict:
 
     data = compute_distance_matrix(data)
 
-    data = define_constraints(data)
-    
+    data = prepare_solver_data(data)
+
     # OR-Tools requires an index manager that maps between internal routing indices and real node IDs.
     # The manager handles the translation between node positions like 0, 1, 2... and the model's indices.
     manager = pywrapcp.RoutingIndexManager(len(data["distance_matrix"]), data["num_vehicles"], data["depot"]["id"])
@@ -167,6 +152,7 @@ def solve_vrptw(data_path: str) -> dict:
     else:
         print_solution(data, manager, routing, solution)
 
+    validation_result = validate_vrptw_solution(data, manager, routing, solution)
 
     # Return a structured output that can be consumed by a dashboard, API, or audit report.
     return {
