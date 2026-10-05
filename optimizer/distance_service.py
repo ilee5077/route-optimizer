@@ -5,7 +5,7 @@ from time import time
 import requests
 from dotenv import load_dotenv
 
-from optimizer.model import Location, RoutingProblem, InputMode
+from optimizer.model import InputMode, Location, RoutingProblem
 
 
 def compute_distance(from_node: dict, to_node: dict) -> dict:
@@ -23,11 +23,11 @@ def compute_distance(from_node: dict, to_node: dict) -> dict:
         raise Exception(f"OSRM Error: {data.get('message', 'Failed to calculate route')}")
 
     route = data["routes"][0]
-    
+
     return {
         "distance_km": round(route["distance"] / 1000.0, 2),
         "duration_mins": round(route["duration"] / 60.0, 1),
-        "duration_secs": int(route["duration"])
+        "duration_secs": int(route["duration"]),
     }
 
 
@@ -59,16 +59,16 @@ def compute_google_maps_route(from_node: dict, to_node: dict) -> dict:
             "routingPreference": "TRAFFIC_AWARE_OPTIMAL",
         },
     )
-    
+
     response.raise_for_status()
     data = response.json()
 
     distance_meters = data["routes"][0]["distanceMeters"]
-    duration_seconds = data["routes"][0]["duration"][:-1]  # truncate the s at the end of the string and convert to int
-    return {
-        "distance_m": int(distance_meters),
-        "duration_s": int(float(duration_seconds))
-    }
+    duration_seconds = data["routes"][0]["duration"][
+        :-1
+    ]  # truncate the s at the end of the string and convert to int
+    return {"distance_m": int(distance_meters), "duration_s": int(float(duration_seconds))}
+
 
 def compute_euclidean_distance(from_node: Location, to_node: Location) -> float:
     """Computes the Euclidean distance between two points."""
@@ -77,6 +77,7 @@ def compute_euclidean_distance(from_node: Location, to_node: Location) -> float:
 
     # Simple Euclidean distance calculation (not accounting for Earth's curvature)
     return round(((from_x - to_x) ** 2 + (from_y - to_y) ** 2) ** 0.5)
+
 
 def compute_distance_matrix(problem: RoutingProblem, method: InputMode) -> RoutingProblem:
     """Computes a distance matrix between all locations using the compute_distance function."""
@@ -94,11 +95,15 @@ def compute_distance_matrix(problem: RoutingProblem, method: InputMode) -> Routi
                 else:
                     if method == InputMode.SOLOMON:
                         # Solomon benchmark coordinates use Euclidean distance.
-                        problem.distance_matrix[from_counter][to_counter] = compute_euclidean_distance(from_node, to_node)
+                        problem.distance_matrix[from_counter][to_counter] = (
+                            compute_euclidean_distance(from_node, to_node)
+                        )
                     else:
                         # We assume one distance unit represents one minute of travel time.
                         # This is a simplified approximation for a demo routing model.
-                        problem.distance_matrix[from_counter][to_counter] = compute_distance(from_node, to_node)['duration_mins']
+                        problem.distance_matrix[from_counter][to_counter] = compute_distance(
+                            from_node, to_node
+                        )["duration_mins"]
     elif method == InputMode.GOOGLE:
         for from_counter, from_node in enumerate(locations):
             for to_counter, to_node in enumerate(locations):
@@ -108,8 +113,8 @@ def compute_distance_matrix(problem: RoutingProblem, method: InputMode) -> Routi
                 else:
                     result = compute_google_maps_route(from_node, to_node)
                     time.sleep(0.1)  # Add a small delay to avoid hitting API rate limits
-                    problem.duration_matrix[from_counter][to_counter] = result['duration_s']
-                    problem.distance_matrix[from_counter][to_counter] = result['distance_m']
+                    problem.duration_matrix[from_counter][to_counter] = result["duration_s"]
+                    problem.distance_matrix[from_counter][to_counter] = result["distance_m"]
 
     return problem
 
@@ -117,8 +122,8 @@ def compute_distance_matrix(problem: RoutingProblem, method: InputMode) -> Routi
 def build_distance_matrix(problem: RoutingProblem, mode: InputMode) -> RoutingProblem:
     """Builds a distance matrix for the routing problem based on the specified mode."""
     if mode == InputMode.LOCAL:
-        #fill coordinates for local mode
-        1==1
+        # fill coordinates for local mode
+        1 == 1
     elif mode == InputMode.SOLOMON:
         problem = compute_distance_matrix(problem, method="euclidean")
     elif mode == InputMode.GOOGLE:

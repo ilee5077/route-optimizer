@@ -11,8 +11,8 @@ class Location:
     due_time: int
     service_time: int
     address: str | None = None
-    x: float | None = None #longitude
-    y: float | None = None #latitude
+    x: float | None = None  # longitude
+    y: float | None = None  # latitude
 
 
 @dataclass
@@ -20,12 +20,13 @@ class FleetSettings:
     """Vehicle count and shared capacity constraints."""
 
     vehicle_count: int
-    vehicle_capacity: int 
+    vehicle_capacity: int
 
 
 @dataclass
 class RoutingProblem:
     """Normalized input consumed by the route solver."""
+
     locations: list[Location]
     depot: Location
     customers: list[Location]
@@ -36,13 +37,17 @@ class RoutingProblem:
     time_windows: list[tuple[int, int]]
     name: str | None = None
 
+
 @dataclass
 class SolverConfig:
     """Optional configuration parameters for the solver."""
+
     time_limit_seconds: int = 30  # Default time limit for the solver in seconds
+
 
 class InputMode:
     """Enumeration for supported input modes."""
+
     SOLOMON = "solomon"
     GOOGLE = "google"
     LOCAL = "local"

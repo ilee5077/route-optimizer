@@ -2,6 +2,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+
 def save_result(result: dict, output_dir: str = "outputs", filename: str | None = None):
     Path(output_dir).mkdir(exist_ok=True)
 

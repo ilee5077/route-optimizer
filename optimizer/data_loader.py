@@ -1,5 +1,6 @@
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
 
 from optimizer.distance_service import build_distance_matrix
 from optimizer.model import FleetSettings, InputMode, Location, RoutingProblem
@@ -7,7 +8,7 @@ from optimizer.model import FleetSettings, InputMode, Location, RoutingProblem
 
 def load_input_data(file_path: str) -> dict:
     """Loads CSV customer data and normalizes it into the format expected by the solver."""
-    if file_path.endswith('.csv'):
+    if file_path.endswith(".csv"):
         # Read the CSV using pandas so the depot and customer rows can be interpreted cleanly.
         df = pd.read_csv(file_path)
 
@@ -15,16 +16,18 @@ def load_input_data(file_path: str) -> dict:
         locations = []
 
         for i, loc in df.iterrows():
-            locations.append(Location(
-                id=i,
-                address=loc.Address,
-                demand=int(loc.Demand),
-                ready_time=int(loc.ReadyTime),
-                due_time=int(loc.DueDate),
-                service_time=int(loc.ServiceTime),
-                x=None,
-                y=None,
-            ))
+            locations.append(
+                Location(
+                    id=i,
+                    address=loc.Address,
+                    demand=int(loc.Demand),
+                    ready_time=int(loc.ReadyTime),
+                    due_time=int(loc.DueDate),
+                    service_time=int(loc.ServiceTime),
+                    x=None,
+                    y=None,
+                )
+            )
 
         # The CSV format appears to place the depot as the first row and the customers afterward.
         # We convert that into a RoutingProblem object with a depot and a list of customers.
@@ -33,7 +36,9 @@ def load_input_data(file_path: str) -> dict:
             depot=locations[0],
             customers=locations[1:],
             locations=locations,
-            fleet=FleetSettings(vehicle_count=0, vehicle_capacity=0),  # Placeholder; will be set later if needed
+            fleet=FleetSettings(
+                vehicle_count=0, vehicle_capacity=0
+            ),  # Placeholder; will be set later if needed
             distance_matrix=[[0] * len(locations) for _ in locations],
             duration_matrix=[[0] * len(locations) for _ in locations],
             demands=[loc.demand for loc in locations],
@@ -42,6 +47,7 @@ def load_input_data(file_path: str) -> dict:
     else:
         # Fail early with a clear message if an unsupported file type is passed in.
         raise ValueError("Unsupported file format. Use CSV.")
+
 
 def parse_solomon_text(raw_data: str) -> tuple[dict, FleetSettings]:
     """Parse a Solomon VRPTW instance and return its fleet settings separately."""
@@ -53,7 +59,7 @@ def parse_solomon_text(raw_data: str) -> tuple[dict, FleetSettings]:
 
     customer_header = lines.index("CUSTOMER")
     locations = []
-    for line in lines[customer_header + 2:]:
+    for line in lines[customer_header + 2 :]:
         fields = line.split()
         if len(fields) < 7:
             continue
@@ -101,24 +107,24 @@ def load_solomon_file(file_path: str) -> tuple[dict, FleetSettings]:
     raw_data = Path(file_path).read_text(encoding="utf-8")
     return parse_solomon_text(raw_data)
 
+
 def prepare_solver_data(problem: RoutingProblem) -> RoutingProblem:
     """Defines the constraints for the VRPTW problem."""
 
-    data['nodes'] = [problem.depot] + problem.customers # need this
-    data['demands'] = [0] * len(data['nodes']) # need this
-    data['time_windows'] = [(0, 0)] * len(data['nodes']) # need this
-
+    data["nodes"] = [problem.depot] + problem.customers  # need this
+    data["demands"] = [0] * len(data["nodes"])  # need this
+    data["time_windows"] = [(0, 0)] * len(data["nodes"])  # need this
 
     # construct demand and time window constraints for each node
-    data['demands'][data["depot"].id] = 0  # depot has no demand
-    data['time_windows'][data["depot"].id] = (
+    data["demands"][data["depot"].id] = 0  # depot has no demand
+    data["time_windows"][data["depot"].id] = (
         data["depot"].ready_time,
         data["depot"].due_time,
     )
 
     for customer in data["customers"]:
-        data['demands'][customer.id] = customer.demand
-        data['time_windows'][customer.id] = (customer.ready_time, customer.due_time)
+        data["demands"][customer.id] = customer.demand
+        data["time_windows"][customer.id] = (customer.ready_time, customer.due_time)
 
     return RoutingProblem(
         depot=data["depot"],
@@ -127,15 +133,14 @@ def prepare_solver_data(problem: RoutingProblem) -> RoutingProblem:
             vehicle_count=data["fleet_config"]["total_vehicles"],
             vehicle_capacity=data["fleet_config"]["vehicle_capacity"],
         ),
-        distance_matrix=data['distance_matrix'],
-        duration_matrix=data['duration_matrix'],
+        distance_matrix=data["distance_matrix"],
+        duration_matrix=data["duration_matrix"],
         name=data.get("name"),
     )
 
+
 def build_routing_problem(
-    path: str,
-    mode: InputMode,
-    fleet_config: FleetSettings | None = None
+    path: str, mode: InputMode, fleet_config: FleetSettings | None = None
 ) -> RoutingProblem:
     """Loads and prepares a routing problem from a file path."""
     if mode == InputMode.SOLOMON:
@@ -151,4 +156,3 @@ def build_routing_problem(
         raise ValueError(f"Unsupported input mode: {mode}")
 
     return problem
-

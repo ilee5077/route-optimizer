@@ -1,15 +1,7 @@
-import json
-from pathlib import Path
-from fastapi import routing
-from ortools.constraint_solver import routing_enums_pb2
-from ortools.constraint_solver import pywrapcp
+from ortools.constraint_solver import pywrapcp, routing_enums_pb2
 
-from optimizer.data_loader import load_input_data, load_solomon_file, prepare_solver_data
-from optimizer.geocoder import geocode_address
-from optimizer.distance_service import compute_distance_matrix
-from optimizer.model import RoutingProblem, FleetSettings, SolverConfig
+from optimizer.model import RoutingProblem, SolverConfig
 from validation.validation_code import validate_vrptw_solution
-
 
 
 def print_solution(problem: RoutingProblem, manager, routing, solution):
@@ -32,10 +24,14 @@ def print_solution(problem: RoutingProblem, manager, routing, solution):
                 f" Time({solution.Min(time_var)},{solution.Max(time_var)})"
                 " -> "
             )
-            if routing.IsEnd(solution.Value(routing.NextVar(index))): #back to depot
-                total_distance += problem.distance_matrix[manager.IndexToNode(index)][manager.IndexToNode(routing.Start(vehicle_id))]
+            if routing.IsEnd(solution.Value(routing.NextVar(index))):  # back to depot
+                total_distance += problem.distance_matrix[manager.IndexToNode(index)][
+                    manager.IndexToNode(routing.Start(vehicle_id))
+                ]
             else:
-                total_distance += problem.distance_matrix[manager.IndexToNode(index)][solution.Value(routing.NextVar(index))]
+                total_distance += problem.distance_matrix[manager.IndexToNode(index)][
+                    solution.Value(routing.NextVar(index))
+                ]
             index = solution.Value(routing.NextVar(index))
         time_var = time_dimension.CumulVar(index)
         plan_output += (
@@ -50,7 +46,6 @@ def print_solution(problem: RoutingProblem, manager, routing, solution):
     print(f"Total vehicles used: {total_vehicles_used}")
 
 
-
 def solve_vrptw(problem: RoutingProblem, config: SolverConfig | None = None) -> dict:
     """Main solver pipeline using Google OR-Tools to optimize vehicle routes under capacity and time-window constraints."""
 
@@ -60,7 +55,6 @@ def solve_vrptw(problem: RoutingProblem, config: SolverConfig | None = None) -> 
         len(problem.distance_matrix), problem.fleet.vehicle_count, problem.depot.id
     )
     routing = pywrapcp.RoutingModel(manager)
-
 
     # Capacity constraints are added as a dimension.
     # This prevents a single vehicle from exceeding the assigned capacity limit while traversing stops.
@@ -79,7 +73,7 @@ def solve_vrptw(problem: RoutingProblem, config: SolverConfig | None = None) -> 
         0,  # null capacity slack: no extra room beyond the cap is allowed
         [problem.fleet.vehicle_capacity] * problem.fleet.vehicle_count,
         True,  # start at zero for each vehicle's cumulative load
-        'Capacity'
+        "Capacity",
     )
 
     # Time window constraints are modeled as a time dimension.
@@ -99,12 +93,12 @@ def solve_vrptw(problem: RoutingProblem, config: SolverConfig | None = None) -> 
 
     routing.AddDimension(
         transit_callback_index,
-        99999,   # allow waiting time
+        99999,  # allow waiting time
         problem.depot.due_time,  # maximum time per vehicle
         False,  # do not force the start time to be zero for the route
-        'Time'
+        "Time",
     )
-    time_dimension = routing.GetDimensionOrDie('Time')
+    time_dimension = routing.GetDimensionOrDie("Time")
 
     # Apply time-window restrictions to each stop.
     # For every node, the cumulative time variable must remain within a permissible range.
@@ -118,15 +112,11 @@ def solve_vrptw(problem: RoutingProblem, config: SolverConfig | None = None) -> 
     depot_idx = problem.depot.id
     for vehicle_id in range(problem.fleet.vehicle_count):
         index = routing.Start(vehicle_id)
-        time_dimension.CumulVar(index).SetRange(
-            problem.depot.ready_time, problem.depot.due_time
-        )
+        time_dimension.CumulVar(index).SetRange(problem.depot.ready_time, problem.depot.due_time)
 
     # Instantiate route start and end times to produce feasible times.
     for i in range(problem.fleet.vehicle_count):
-        routing.AddVariableMinimizedByFinalizer(
-            time_dimension.CumulVar(routing.Start(i))
-        )
+        routing.AddVariableMinimizedByFinalizer(time_dimension.CumulVar(routing.Start(i)))
         routing.AddVariableMinimizedByFinalizer(time_dimension.CumulVar(routing.End(i)))
 
     # Search parameters control how the solver explores the problem space.
@@ -139,7 +129,9 @@ def solve_vrptw(problem: RoutingProblem, config: SolverConfig | None = None) -> 
     search_parameters.local_search_metaheuristic = (
         routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
     )
-    search_parameters.time_limit.seconds = 10  # Keep the calculation lightweight for a demo or pitch workflow.
+    search_parameters.time_limit.seconds = (
+        10  # Keep the calculation lightweight for a demo or pitch workflow.
+    )
 
     # Solve the optimization model with the configured search strategy.
     solution = routing.SolveWithParameters(search_parameters)
@@ -153,6 +145,4 @@ def solve_vrptw(problem: RoutingProblem, config: SolverConfig | None = None) -> 
     validation_result = validate_vrptw_solution(problem, manager, routing, solution)
 
     # Return a structured output that can be consumed by a dashboard, API, or audit report.
-    return {
-        "success": True
-    }
+    return {"success": True}
